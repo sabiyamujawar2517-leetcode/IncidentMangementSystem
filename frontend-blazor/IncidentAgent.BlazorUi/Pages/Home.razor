@@ -1,0 +1,47 @@
+@page "/"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<PageTitle>IncidentAgent</PageTitle>
+
+<h1>IncidentAgent (Blazor)</h1>
+
+<button @onclick="CallApi" disabled="@loading">Call API</button>
+
+@if (hello is not null)
+{
+    <p><strong>Message:</strong> @hello.Message</p>
+    <p><strong>Time (UTC):</strong> @hello.TimeUtc.ToString("u")</p>
+}
+
+@if (error is not null)
+{
+    <p style="color: red">Error: @error</p>
+}
+
+@code {
+    private HelloResponse? hello;
+    private string? error;
+    private bool loading;
+
+    private async Task CallApi()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            hello = await Http.GetFromJsonAsync<HelloResponse>("api/hello");
+        }
+        catch (Exception ex)
+        {
+            hello = null;
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private record HelloResponse(string Message, DateTime TimeUtc);
+}
