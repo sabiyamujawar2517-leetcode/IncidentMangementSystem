@@ -1,0 +1,39 @@
+@inject NavigationManager Nav
+
+<div class="table-wrap">
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">Number</th>
+                <th scope="col">Title</th>
+                <th scope="col">Category</th>
+                <th scope="col">Service</th>
+                <th scope="col">Priority</th>
+                <th scope="col">Status</th>
+                <th scope="col">Assignee</th>
+                <th scope="col">Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Items)
+            {
+                <tr class="table__row" @onclick="() => Open(item.Id)">
+                    <td data-label="Number"><a class="table__link" href="incidents/@item.Id" @onclick:stopPropagation>@item.IncidentNumber</a></td>
+                    <td data-label="Title" class="table__title">@item.Title</td>
+                    <td data-label="Category">@item.CategoryName</td>
+                    <td data-label="Service">@item.ServiceName</td>
+                    <td data-label="Priority"><PriorityBadge Value="item.Priority" /></td>
+                    <td data-label="Status"><StatusBadge Value="item.Status" /></td>
+                    <td data-label="Assignee">@(item.AssigneeName ?? "Unassigned")</td>
+                    <td data-label="Created" class="table__nowrap">@Format.LocalDateTime(item.CreatedAtUtc)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<IncidentListItem> Items { get; set; } = [];
+
+    private void Open(Guid id) => Nav.NavigateTo($"incidents/{id}");
+}

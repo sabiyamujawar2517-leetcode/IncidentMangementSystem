@@ -1,0 +1,134 @@
+@page "/"
+@implements IDisposable
+@inject IncidentApiService Api
+@inject RefreshNotifier Refresh
+
+<PageTitle>Dashboard · IncidentAgent</PageTitle>
+
+<h1 class="page__title">Dashboard</h1>
+
+<section aria-labelledby="kpi-heading" class="section">
+    <h2 id="kpi-heading" class="visually-hidden">Key figures</h2>
+    @if (countsError is not null)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Error" Message="@countsError" OnRetry="LoadAsync" />
+    }
+    else
+    {
+        <div class="kpi-grid @(loading ? "is-loading" : "")">
+            <SummaryCard Label="Total incidents" Value="total" IconName="list" Tone="neutral" Href="incidents" />
+            <SummaryCard Label="Open" Value="open" IconName="folder" Tone="open" Href="incidents?status=Open" />
+            <SummaryCard Label="In progress" Value="inProgress" IconName="activity" Tone="progress" Hint="Assigned + Investigating" Href="incidents" />
+            <SummaryCard Label="Critical (P1)" Value="byPriority.GetValueOrDefault(Priority.P1Critical)" IconName="flame" Tone="critical" Href="incidents?priority=P1Critical" />
+            <SummaryCard Label="Resolved" Value="resolved" IconName="check" Tone="resolved" Href="incidents?status=Resolved" />
+        </div>
+
+        <div class="card priority-row">
+            <h2 class="card__title">By priority</h2>
+            <ul class="priority-row__list">
+                @foreach (var p in Enum.GetValues<Priority>())
+                {
+                    <li>
+                        <a class="priority-row__item" href="incidents?priority=@p">
+                            <PriorityBadge Value="p" />
+                            <span class="priority-row__count">@(loading ? "—" : byPriority.GetValueOrDefault(p).ToString("N0"))</span>
+                            <span class="priority-row__pct">@Percent(byPriority.GetValueOrDefault(p))</span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+</section>
+
+<section class="card section" aria-labelledby="recent-heading">
+    <div class="card__header">
+        <h2 id="recent-heading" class="card__title">Recent incidents</h2>
+        <a class="link" href="incidents">View all</a>
+    </div>
+    @if (recentError is not null)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Error" Message="@recentError" OnRetry="LoadAsync" />
+    }
+    else if (recent is null)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Loading" Message="Loading recent incidents…" />
+    }
+    else if (recent.Count == 0)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Empty" Message="No incidents have been reported yet." />
+    }
+    else
+    {
+        <IncidentTable Items="recent" />
+    }
+</section>
+
+@code {
+    private CancellationTokenSource? cts;
+    private bool loading = true;
+    private int? total, open, inProgress, resolved;
+    private Dictionary<Priority, int> byPriority = new();
+    private List<IncidentListItem>? recent;
+    private string? countsError, recentError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Refresh.Requested += LoadAsync;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        cts?.Cancel();
+        cts = new CancellationTokenSource();
+        var ct = cts.Token;
+        loading = true;
+        countsError = recentError = null;
+        recent = null;
+        StateHasChanged();
+
+        // Every number comes from totalCount of a filtered pageSize=1 request, all in parallel.
+        var totalTask = Api.GetStatusCountAsync(null, null, ct);
+        var openTask = Api.GetStatusCountAsync(IncidentStatus.Open, null, ct);
+        var assignedTask = Api.GetStatusCountAsync(IncidentStatus.Assigned, null, ct);
+        var investigatingTask = Api.GetStatusCountAsync(IncidentStatus.Investigating, null, ct);
+        var resolvedTask = Api.GetStatusCountAsync(IncidentStatus.Resolved, null, ct);
+        var priorityTasks = Enum.GetValues<Priority>().ToDictionary(p => p, p => Api.GetStatusCountAsync(null, p, ct));
+        var recentTask = Api.GetIncidentsAsync(new IncidentFilter { PageSize = 10 }, ct);
+
+        var counts = new List<Task<ApiResult<int>>> { totalTask, openTask, assignedTask, investigatingTask, resolvedTask };
+        counts.AddRange(priorityTasks.Values);
+        await Task.WhenAll(counts.Cast<Task>().Append(recentTask));
+        if (ct.IsCancellationRequested) return;
+
+        var failed = counts.Select(t => t.Result).FirstOrDefault(r => !r.IsSuccess);
+        if (failed is not null)
+        {
+            countsError = failed.Error;
+        }
+        else
+        {
+            total = totalTask.Result.Value;
+            open = openTask.Result.Value;
+            inProgress = assignedTask.Result.Value + investigatingTask.Result.Value;
+            resolved = resolvedTask.Result.Value;
+            byPriority = priorityTasks.ToDictionary(kv => kv.Key, kv => kv.Value.Result.Value);
+        }
+
+        var recentResult = recentTask.Result;
+        if (recentResult.IsSuccess) recent = recentResult.Value!.Items;
+        else recentError = recentResult.Error;
+
+        loading = false;
+        StateHasChanged();
+    }
+
+    private string Percent(int count) => total is > 0 ? $"{count * 100.0 / total.Value:0}%" : "";
+
+    public void Dispose()
+    {
+        Refresh.Requested -= LoadAsync;
+        cts?.Cancel();
+    }
+}

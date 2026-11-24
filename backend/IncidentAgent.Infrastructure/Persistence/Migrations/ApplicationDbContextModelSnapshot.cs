@@ -22,6 +22,8 @@ namespace IncidentAgent.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.HasSequence("incident_number_seq");
+
             modelBuilder.Entity("IncidentAgent.Domain.Entities.ApplicationService", b =>
                 {
                     b.Property<Guid>("Id")
@@ -138,7 +140,7 @@ namespace IncidentAgent.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("AssignedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("AssignedById")
+                    b.Property<Guid?>("AssignedById")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("AssigneeId")
@@ -267,7 +269,7 @@ namespace IncidentAgent.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("ChangedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid>("ChangedById")
+                    b.Property<Guid?>("ChangedById")
                         .HasColumnType("uuid");
 
                     b.Property<string>("FieldName")
@@ -402,8 +404,7 @@ namespace IncidentAgent.Infrastructure.Persistence.Migrations
                     b.HasOne("IncidentAgent.Domain.Entities.User", "AssignedBy")
                         .WithMany()
                         .HasForeignKey("AssignedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("IncidentAgent.Domain.Entities.User", "Assignee")
                         .WithMany()
@@ -467,8 +468,7 @@ namespace IncidentAgent.Infrastructure.Persistence.Migrations
                     b.HasOne("IncidentAgent.Domain.Entities.User", "ChangedBy")
                         .WithMany()
                         .HasForeignKey("ChangedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("IncidentAgent.Domain.Entities.Incident", "Incident")
                         .WithMany("History")

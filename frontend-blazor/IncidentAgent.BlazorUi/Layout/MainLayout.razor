@@ -1,3 +1,30 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Nav
 
-@Body
+<div class="shell @(collapsed ? "shell--collapsed" : "") @(mobileOpen ? "shell--mobile-open" : "")">
+    <Sidebar Collapsed="collapsed" OnToggleCollapse="() => collapsed = !collapsed" OnClose="() => mobileOpen = false" />
+    <div class="shell__overlay" @onclick="() => mobileOpen = false" aria-hidden="true"></div>
+    <div class="shell__main">
+        <TopBar OnMenu="() => mobileOpen = true" />
+        <main class="page" id="main">
+            @Body
+        </main>
+    </div>
+</div>
+
+@code {
+    private bool collapsed;   // desktop: icon-only sidebar
+    private bool mobileOpen;  // mobile: off-canvas sidebar visible
+
+    protected override void OnInitialized() => Nav.LocationChanged += CloseMobileMenu;
+
+    private void CloseMobileMenu(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (!mobileOpen) return;
+        mobileOpen = false;
+        StateHasChanged();
+    }
+
+    public void Dispose() => Nav.LocationChanged -= CloseMobileMenu;
+}

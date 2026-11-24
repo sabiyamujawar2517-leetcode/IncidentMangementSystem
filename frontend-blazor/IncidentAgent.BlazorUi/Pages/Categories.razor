@@ -1,0 +1,72 @@
+@page "/categories"
+@implements IDisposable
+@inject IncidentApiService Api
+@inject RefreshNotifier Refresh
+
+<PageTitle>Categories · IncidentAgent</PageTitle>
+
+<h1 class="page__title">Categories</h1>
+
+<section class="card">
+    @if (error is not null)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Error" Message="@error" OnRetry="LoadAsync" />
+    }
+    else if (items is null)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Loading" Message="Loading categories…" />
+    }
+    else if (items.Count == 0)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Empty" Message="No categories have been set up." />
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th scope="col">Name</th><th scope="col">Description</th></tr></thead>
+                <tbody>
+                    @foreach (var c in items)
+                    {
+                        <tr>
+                            <td data-label="Name"><a class="table__link" href="incidents?categoryId=@c.Id">@c.Name</a></td>
+                            <td data-label="Description">@(c.Description ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@code {
+    private CancellationTokenSource? cts;
+    private List<Category>? items;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Refresh.Requested += LoadAsync;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        cts?.Cancel();
+        cts = new CancellationTokenSource();
+        error = null;
+        items = null;
+        StateHasChanged();
+
+        var result = await Api.GetCategoriesAsync(cts.Token);
+        if (result.IsCanceled) return;
+        if (result.IsSuccess) items = result.Value; else error = result.Error;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        Refresh.Requested -= LoadAsync;
+        cts?.Cancel();
+    }
+}

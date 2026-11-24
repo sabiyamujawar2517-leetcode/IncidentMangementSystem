@@ -7,8 +7,8 @@ public class IncidentHistory
     public Guid IncidentId { get; set; }
     public Incident Incident { get; set; } = null!;
 
-    public Guid ChangedById { get; set; }
-    public User ChangedBy { get; set; } = null!;
+    public Guid? ChangedById { get; set; }
+    public User? ChangedBy { get; set; }
 
     public required string FieldName { get; set; }
     public string? OldValue { get; set; }

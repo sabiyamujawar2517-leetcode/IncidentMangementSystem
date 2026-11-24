@@ -1,0 +1,42 @@
+<aside class="sidebar" aria-label="Main navigation">
+    <div class="sidebar__brand">
+        <span class="sidebar__logo" aria-hidden="true">IA</span>
+        <span class="sidebar__label sidebar__title">IncidentAgent</span>
+        <button type="button" class="btn btn--icon sidebar__close" @onclick="OnClose" aria-label="Close menu">
+            <Icon Name="close" />
+        </button>
+    </div>
+
+    <nav class="sidebar__nav">
+        <NavLink class="sidebar__link" href="" Match="NavLinkMatch.All" title="Dashboard">
+            <Icon Name="dashboard" /><span class="sidebar__label">Dashboard</span>
+        </NavLink>
+        <NavLink class="sidebar__link" href="incidents" title="All Incidents">
+            <Icon Name="list" /><span class="sidebar__label">All Incidents</span>
+        </NavLink>
+        <span class="sidebar__link sidebar__link--disabled" aria-disabled="true" title="Coming with authentication">
+            <Icon Name="user" />
+            <span class="sidebar__label">My Incidents <small>Coming with authentication</small></span>
+        </span>
+        <NavLink class="sidebar__link" href="categories" title="Categories">
+            <Icon Name="tag" /><span class="sidebar__label">Categories</span>
+        </NavLink>
+        <NavLink class="sidebar__link" href="services" title="Application Services">
+            <Icon Name="server" /><span class="sidebar__label">Application Services</span>
+        </NavLink>
+        <span class="sidebar__link sidebar__link--disabled" aria-disabled="true" title="Settings (not available yet)">
+            <Icon Name="settings" /><span class="sidebar__label">Settings</span>
+        </span>
+    </nav>
+
+    <button type="button" class="sidebar__collapse" @onclick="OnToggleCollapse"
+            aria-label="@(Collapsed ? "Expand sidebar" : "Collapse sidebar")" aria-expanded="@(!Collapsed)">
+        <Icon Name="collapse" /><span class="sidebar__label">Collapse</span>
+    </button>
+</aside>
+
+@code {
+    [Parameter] public bool Collapsed { get; set; }
+    [Parameter] public EventCallback OnToggleCollapse { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+}

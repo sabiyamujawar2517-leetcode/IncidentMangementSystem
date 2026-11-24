@@ -1,0 +1,159 @@
+@page "/incidents"
+@implements IDisposable
+@inject IncidentApiService Api
+@inject NavigationManager Nav
+@inject RefreshNotifier Refresh
+
+<PageTitle>All incidents · IncidentAgent</PageTitle>
+
+<h1 class="page__title">All incidents</h1>
+
+<section class="card">
+    <IncidentFilters Value="filterState" ValueChanged="ApplyFilters" Categories="categories" />
+
+    @if (!string.IsNullOrEmpty(Search))
+    {
+        <p class="notice" role="note">
+            The API has no search parameter yet, so search only matches incidents on the current page
+            (@(visible?.Count ?? 0) of @(result?.Items.Count ?? 0) shown).
+        </p>
+    }
+
+    @if (error is not null)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Error" Message="@error" OnRetry="LoadAsync" />
+    }
+    else if (result is null)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Loading" Message="Loading incidents…" />
+    }
+    else if (visible!.Count == 0)
+    {
+        <StateMessage Kind="StateMessage.StateKind.Empty"
+                      Message="@(filterState.IsEmpty ? "No incidents have been reported yet." : "No incidents match these filters.")" />
+    }
+    else
+    {
+        <IncidentTable Items="visible" />
+    }
+
+    @if (result is not null && error is null)
+    {
+        <Pager Page="result.Page" PageSize="result.PageSize" TotalCount="result.TotalCount"
+               OnPageChange="GoToPage" OnPageSizeChange="ChangePageSize" />
+    }
+</section>
+
+@code {
+    [SupplyParameterFromQuery] public string? Search { get; set; }
+    [SupplyParameterFromQuery] public string? Status { get; set; }
+    [SupplyParameterFromQuery] public string? Priority { get; set; }
+    [SupplyParameterFromQuery] public Guid? CategoryId { get; set; }
+    [SupplyParameterFromQuery(Name = "page")] public int? PageNumber { get; set; }
+    [SupplyParameterFromQuery] public int? PageSize { get; set; }
+
+    private CancellationTokenSource? cts;
+    private IncidentFilters.State filterState = new();
+    private IncidentFilter serverFilter = new();
+    private IncidentFilter? loadedFilter;
+    private PagedResult<IncidentListItem>? result;
+    private List<IncidentListItem>? visible;
+    private List<Category> categories = [];
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Refresh.Requested += LoadAsync;
+        var categoriesResult = await Api.GetCategoriesAsync(CancellationToken.None);
+        if (categoriesResult.IsSuccess) categories = categoriesResult.Value!; // filter still works without names
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // The URL is the source of truth so refresh and back/forward restore the same view.
+        filterState = new IncidentFilters.State(
+            Search,
+            Enum.TryParse<IncidentStatus>(Status, true, out var s) ? s : null,
+            Enum.TryParse<Models.Priority>(Priority, true, out var p) ? p : null,
+            CategoryId);
+
+        serverFilter = new IncidentFilter
+        {
+            Page = PageNumber is > 0 ? PageNumber.Value : 1,
+            PageSize = PageSize is { } size && Pager.PageSizes.Contains(size) ? size : 20,
+            Status = filterState.Status,
+            Priority = filterState.Priority,
+            CategoryId = filterState.CategoryId
+        };
+
+        if (serverFilter != loadedFilter) await LoadAsync();
+        else ApplySearch(); // only the client-side search text changed
+    }
+
+    private async Task LoadAsync()
+    {
+        cts?.Cancel();
+        cts = new CancellationTokenSource();
+        var ct = cts.Token;
+        error = null;
+        result = null;
+        StateHasChanged();
+
+        var response = await Api.GetIncidentsAsync(serverFilter, ct);
+        if (response.IsCanceled) return;
+
+        if (response.IsSuccess)
+        {
+            result = response.Value;
+            loadedFilter = serverFilter;
+            ApplySearch();
+        }
+        else
+        {
+            error = response.Error;
+            loadedFilter = null;
+        }
+        StateHasChanged();
+    }
+
+    private void ApplySearch()
+    {
+        if (result is null) return;
+        var term = Search?.Trim();
+        visible = string.IsNullOrEmpty(term)
+            ? result.Items
+            : result.Items.Where(i => i.IncidentNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
+                                      || i.Title.Contains(term, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void ApplyFilters(IncidentFilters.State state)
+    {
+        // A search-only change replaces the history entry so each keystroke does not add a back step.
+        var searchOnly = state with { Search = filterState.Search } == filterState;
+        Navigate(state, page: searchOnly ? serverFilter.Page : 1, serverFilter.PageSize, replace: searchOnly);
+    }
+
+    private void GoToPage(int page) => Navigate(filterState, page, serverFilter.PageSize, replace: false);
+
+    private void ChangePageSize(int size) => Navigate(filterState, 1, size, replace: false);
+
+    private void Navigate(IncidentFilters.State state, int page, int pageSize, bool replace)
+    {
+        var uri = Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+        {
+            ["search"] = state.Search,
+            ["status"] = state.Status?.ToString(),
+            ["priority"] = state.Priority?.ToString(),
+            ["categoryId"] = state.CategoryId?.ToString(),
+            ["page"] = page > 1 ? page : null,
+            ["pageSize"] = pageSize != 20 ? pageSize : null
+        });
+        Nav.NavigateTo(uri, replace: replace);
+    }
+
+    public void Dispose()
+    {
+        Refresh.Requested -= LoadAsync;
+        cts?.Cancel();
+    }
+}

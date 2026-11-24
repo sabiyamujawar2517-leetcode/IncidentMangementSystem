@@ -1,0 +1,152 @@
+@page "/incidents/{Id:guid}"
+@implements IDisposable
+@inject IncidentApiService Api
+@inject RefreshNotifier Refresh
+
+<PageTitle>@(incident?.IncidentNumber ?? "Incident") · IncidentAgent</PageTitle>
+
+<a class="back-link" href="incidents"><Icon Name="arrow-left" /> Back to incidents</a>
+
+@if (error is not null)
+{
+    <StateMessage Kind="StateMessage.StateKind.Error" Message="@error" OnRetry="LoadAsync" />
+}
+else if (incident is null)
+{
+    <StateMessage Kind="StateMessage.StateKind.Loading" Message="Loading incident…" />
+}
+else
+{
+    <header class="detail-header">
+        <span class="detail-header__number">@incident.IncidentNumber</span>
+        <h1 class="page__title">@incident.Title</h1>
+        <div class="detail-header__badges">
+            <PriorityBadge Value="incident.Priority" />
+            <StatusBadge Value="incident.Status" />
+        </div>
+    </header>
+
+    <div class="detail-grid">
+        <section class="card">
+            <h2 class="card__title">Description</h2>
+            <p class="detail-description">@incident.Description</p>
+        </section>
+
+        <section class="card">
+            <h2 class="card__title">Details</h2>
+            <dl class="meta">
+                <dt>Category</dt><dd>@incident.CategoryName</dd>
+                <dt>Service</dt><dd>@incident.ServiceName</dd>
+                <dt>Reporter</dt><dd>@incident.ReporterName</dd>
+                <dt>Assignee</dt><dd>@(incident.AssigneeName ?? "Unassigned")</dd>
+                <dt>Created</dt><dd>@Format.LocalDateTime(incident.CreatedAtUtc)</dd>
+                <dt>Updated</dt><dd>@Format.LocalDateTime(incident.UpdatedAtUtc)</dd>
+                @if (incident.ResolvedAtUtc is not null)
+                {
+                    <dt>Resolved</dt><dd>@Format.LocalDateTime(incident.ResolvedAtUtc)</dd>
+                }
+                @if (incident.ClosedAtUtc is not null)
+                {
+                    <dt>Closed</dt><dd>@Format.LocalDateTime(incident.ClosedAtUtc)</dd>
+                }
+            </dl>
+        </section>
+    </div>
+
+    <section class="card section">
+        <h2 class="card__title">History</h2>
+        @if (historyError is not null)
+        {
+            <StateMessage Kind="StateMessage.StateKind.Error" Message="@historyError" OnRetry="LoadAsync" />
+        }
+        else if (history is null || history.Count == 0)
+        {
+            <StateMessage Kind="StateMessage.StateKind.Empty" Message="No history recorded for this incident." />
+        }
+        else
+        {
+            <ol class="timeline">
+                @foreach (var entry in history)
+                {
+                    <li class="timeline__item">
+                        <span class="timeline__dot" aria-hidden="true"></span>
+                        <div class="timeline__body">
+                            <p class="timeline__text">@Describe(entry)</p>
+                            <p class="timeline__meta">
+                                @(entry.ChangedByName ?? "System / unknown user") · @Format.LocalDateTime(entry.ChangedAtUtc)
+                            </p>
+                        </div>
+                    </li>
+                }
+            </ol>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private CancellationTokenSource? cts;
+    private IncidentDetail? incident;
+    private List<IncidentHistoryEntry>? history;
+    private Dictionary<string, string> names = new();
+    private string? error, historyError;
+
+    protected override void OnInitialized() => Refresh.Requested += LoadAsync;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        cts?.Cancel();
+        cts = new CancellationTokenSource();
+        var ct = cts.Token;
+        error = historyError = null;
+        incident = null;
+        history = null;
+        StateHasChanged();
+
+        var incidentTask = Api.GetIncidentAsync(Id, ct);
+        var historyTask = Api.GetHistoryAsync(Id, ct);
+        var categoriesTask = Api.GetCategoriesAsync(ct);
+        var servicesTask = Api.GetServicesAsync(ct);
+        await Task.WhenAll(incidentTask, historyTask, categoriesTask, servicesTask);
+        if (ct.IsCancellationRequested) return;
+
+        var incidentResult = incidentTask.Result;
+        if (!incidentResult.IsSuccess)
+        {
+            error = incidentResult.StatusCode == 404 ? "This incident does not exist or was removed." : incidentResult.Error;
+            StateHasChanged();
+            return;
+        }
+        incident = incidentResult.Value;
+
+        // History stores category/service changes as ids; show names when the reference lists loaded.
+        names = new Dictionary<string, string>();
+        foreach (var c in categoriesTask.Result.Value ?? []) names[c.Id.ToString()] = c.Name;
+        foreach (var s in servicesTask.Result.Value ?? []) names[s.Id.ToString()] = s.Name;
+        if (incident!.AssigneeId is { } assigneeId && incident.AssigneeName is not null) names[assigneeId.ToString()] = incident.AssigneeName;
+
+        if (historyTask.Result.IsSuccess) history = historyTask.Result.Value;
+        else historyError = historyTask.Result.Error;
+        StateHasChanged();
+    }
+
+    private string Describe(IncidentHistoryEntry e)
+    {
+        var field = e.FieldName switch { "CategoryId" => "Category", "ServiceId" => "Service", _ => e.FieldName };
+        if (e.FieldName == "Created") return $"Incident {e.NewValue} created";
+        var from = Name(e.OldValue);
+        var to = Name(e.NewValue);
+        return from is null ? $"{field} set to {to}" : $"{field} changed from {from} to {to}";
+    }
+
+    private string? Name(string? value) => value is null ? null : names.GetValueOrDefault(value, value);
+
+    public void Dispose()
+    {
+        Refresh.Requested -= LoadAsync;
+        cts?.Cancel();
+    }
+}
