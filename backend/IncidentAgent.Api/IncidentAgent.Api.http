@@ -1,0 +1,10 @@
+@IncidentAgent.Api_HostAddress = http://localhost:5080
+
+GET {{IncidentAgent.Api_HostAddress}}/api/hello
+Accept: application/json
+
+###
+
+GET {{IncidentAgent.Api_HostAddress}}/health
+
+###

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/IncidentAgent.Api/IncidentAgent.Api.csproj" />
+  </Folder>
+  <Folder Name="/frontend-blazor/">
+    <Project Path="frontend-blazor/IncidentAgent.BlazorUi/IncidentAgent.BlazorUi.csproj" />
+  </Folder>
+</Solution>
