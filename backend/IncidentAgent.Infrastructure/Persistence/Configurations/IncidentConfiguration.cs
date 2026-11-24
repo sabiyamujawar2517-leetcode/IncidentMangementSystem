@@ -10,9 +10,9 @@ public class IncidentConfiguration : IEntityTypeConfiguration<Incident>
     {
         builder.ToTable("Incidents");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.IncidentNumber).IsRequired().HasMaxLength(32);
-        builder.Property(x => x.Title).IsRequired().HasMaxLength(200);
-        builder.Property(x => x.Description).IsRequired().HasMaxLength(4000);
+        builder.Property(x => x.IncidentNumber).IsRequired().HasMaxLength(Incident.IncidentNumberMaxLength);
+        builder.Property(x => x.Title).IsRequired().HasMaxLength(Incident.TitleMaxLength);
+        builder.Property(x => x.Description).IsRequired().HasMaxLength(Incident.DescriptionMaxLength);
         builder.Property(x => x.Priority).HasConversion<string>().HasMaxLength(20);
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
 

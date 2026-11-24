@@ -4,6 +4,10 @@ namespace IncidentAgent.Domain.Entities;
 
 public class Incident
 {
+    public const int IncidentNumberMaxLength = 32;
+    public const int TitleMaxLength = 200;
+    public const int DescriptionMaxLength = 4000;
+
     public Guid Id { get; set; }
     public required string IncidentNumber { get; set; }
     public required string Title { get; set; }

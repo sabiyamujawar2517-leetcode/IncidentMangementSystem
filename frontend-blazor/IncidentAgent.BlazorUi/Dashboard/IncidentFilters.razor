@@ -1,0 +1,79 @@
+@implements IDisposable
+
+<div class="filters">
+    <label class="field field--search">
+        <span class="field__label">Search</span>
+        <input type="search" placeholder="Number or title" value="@Value.Search" @oninput="OnSearchInput" />
+    </label>
+    <label class="field">
+        <span class="field__label">Status</span>
+        <select value="@(Value.Status?.ToString() ?? "")" @onchange="e => Emit(Value with { Status = ParseEnum<IncidentStatus>(e) })">
+            <option value="">All statuses</option>
+            @foreach (var s in Enum.GetValues<IncidentStatus>())
+            {
+                <option value="@s">@s</option>
+            }
+        </select>
+    </label>
+    <label class="field">
+        <span class="field__label">Priority</span>
+        <select value="@(Value.Priority?.ToString() ?? "")" @onchange="e => Emit(Value with { Priority = ParseEnum<Priority>(e) })">
+            <option value="">All priorities</option>
+            @foreach (var p in Enum.GetValues<Priority>())
+            {
+                <option value="@p">@Format.PriorityLabel(p)</option>
+            }
+        </select>
+    </label>
+    <label class="field">
+        <span class="field__label">Category</span>
+        <select value="@(Value.CategoryId?.ToString() ?? "")" @onchange="e => Emit(Value with { CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null })">
+            <option value="">All categories</option>
+            @foreach (var c in Categories)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+    </label>
+    <button type="button" class="btn btn--ghost filters__clear" disabled="@Value.IsEmpty" @onclick="() => Emit(new State())">Clear filters</button>
+</div>
+
+@code {
+    public record State(string? Search = null, IncidentStatus? Status = null, Priority? Priority = null, Guid? CategoryId = null)
+    {
+        public bool IsEmpty => string.IsNullOrEmpty(Search) && Status is null && Priority is null && CategoryId is null;
+    }
+
+    [Parameter, EditorRequired] public State Value { get; set; } = new();
+    [Parameter] public EventCallback<State> ValueChanged { get; set; }
+    [Parameter] public IReadOnlyList<Category> Categories { get; set; } = [];
+
+    private CancellationTokenSource? debounce;
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        debounce?.Cancel();
+        debounce = new CancellationTokenSource();
+        var token = debounce.Token;
+        try
+        {
+            await Task.Delay(400, token);
+            await Emit(Value with { Search = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString()!.Trim() });
+        }
+        catch (TaskCanceledException)
+        {
+            // A newer keystroke replaced this one.
+        }
+    }
+
+    private Task Emit(State state)
+    {
+        debounce?.Cancel();
+        return ValueChanged.InvokeAsync(state);
+    }
+
+    private static T? ParseEnum<T>(ChangeEventArgs e) where T : struct, Enum =>
+        Enum.TryParse<T>(e.Value?.ToString(), out var v) ? v : null;
+
+    public void Dispose() => debounce?.Cancel();
+}

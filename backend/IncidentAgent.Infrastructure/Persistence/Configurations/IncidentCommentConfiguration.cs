@@ -10,7 +10,7 @@ public class IncidentCommentConfiguration : IEntityTypeConfiguration<IncidentCom
     {
         builder.ToTable("IncidentComments");
         builder.HasKey(x => x.Id);
-        builder.Property(x => x.Body).IsRequired().HasMaxLength(4000);
+        builder.Property(x => x.Body).IsRequired().HasMaxLength(IncidentComment.BodyMaxLength);
         builder.HasIndex(x => x.IncidentId);
 
         builder.HasOne(x => x.Incident).WithMany(x => x.Comments)

@@ -1,0 +1,81 @@
+@implements IDisposable
+@inject NavigationManager Nav
+@inject RefreshNotifier Refresh
+
+<header class="topbar">
+    <button type="button" class="btn btn--icon topbar__menu" @onclick="OnMenu" aria-label="Open menu">
+        <Icon Name="menu" />
+    </button>
+
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+        @if (parent is not null)
+        {
+            <a href="@parent.Value.Href">@parent.Value.Title</a>
+            <span aria-hidden="true">/</span>
+        }
+        <span class="breadcrumb__current">@title</span>
+    </nav>
+
+    <form class="topbar__search" role="search" @onsubmit="Search">
+        <Icon Name="search" />
+        <input type="search" placeholder="Search number or title…" aria-label="Search incidents" @bind="query" />
+    </form>
+
+    <button type="button" class="btn btn--ghost" @onclick="DoRefresh" disabled="@refreshing">
+        <Icon Name="refresh" /><span class="topbar__btn-label">Refresh</span>
+    </button>
+
+    <span class="avatar" title="Not signed in (authentication comes later)" aria-label="User placeholder">U</span>
+</header>
+
+@code {
+    [Parameter] public EventCallback OnMenu { get; set; }
+
+    private string title = "Dashboard";
+    private (string Title, string Href)? parent;
+    private string? query;
+    private bool refreshing;
+
+    protected override void OnInitialized()
+    {
+        UpdateTitle();
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        UpdateTitle();
+        StateHasChanged();
+    }
+
+    private void UpdateTitle()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/');
+        parent = null;
+        title = path switch
+        {
+            "" => "Dashboard",
+            "incidents" => "All Incidents",
+            "categories" => "Categories",
+            "services" => "Application Services",
+            _ when path.StartsWith("incidents/") => "Incident details",
+            _ => "IncidentAgent"
+        };
+        if (path.StartsWith("incidents/")) parent = ("All Incidents", "incidents");
+    }
+
+    private void Search()
+    {
+        var text = query?.Trim();
+        Nav.NavigateTo(string.IsNullOrEmpty(text) ? "incidents" : $"incidents?search={Uri.EscapeDataString(text)}");
+    }
+
+    private async Task DoRefresh()
+    {
+        refreshing = true;
+        try { await Refresh.RequestAsync(); }
+        finally { refreshing = false; }
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

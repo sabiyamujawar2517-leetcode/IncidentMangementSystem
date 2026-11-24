@@ -1,0 +1,5 @@
+<span class="badge badge--@Value.ToString().ToLowerInvariant()">@Format.PriorityLabel(Value)</span>
+
+@code {
+    [Parameter, EditorRequired] public Priority Value { get; set; }
+}

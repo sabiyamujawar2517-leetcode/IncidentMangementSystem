@@ -1,0 +1,37 @@
+<nav class="pager" aria-label="Pagination">
+    <label class="pager__size">
+        Rows per page
+        <select value="@PageSize" @onchange="ChangeSize">
+            @foreach (var size in PageSizes)
+            {
+                <option value="@size">@size</option>
+            }
+        </select>
+    </label>
+    <span class="pager__range">@RangeText</span>
+    <button type="button" class="btn btn--icon" disabled="@(Page <= 1)" @onclick="() => OnPageChange.InvokeAsync(Page - 1)" aria-label="Previous page">
+        <Icon Name="chevron-left" />
+    </button>
+    <button type="button" class="btn btn--icon" disabled="@(Page >= LastPage)" @onclick="() => OnPageChange.InvokeAsync(Page + 1)" aria-label="Next page">
+        <Icon Name="chevron-right" />
+    </button>
+</nav>
+
+@code {
+    public static readonly int[] PageSizes = [10, 20, 50];
+
+    [Parameter, EditorRequired] public int Page { get; set; }
+    [Parameter, EditorRequired] public int PageSize { get; set; }
+    [Parameter, EditorRequired] public int TotalCount { get; set; }
+    [Parameter] public EventCallback<int> OnPageChange { get; set; }
+    [Parameter] public EventCallback<int> OnPageSizeChange { get; set; }
+
+    private int LastPage => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)PageSize));
+
+    private string RangeText => TotalCount == 0
+        ? "0 of 0"
+        : $"{(Page - 1) * PageSize + 1}–{Math.Min(Page * PageSize, TotalCount)} of {TotalCount}";
+
+    private Task ChangeSize(ChangeEventArgs e) =>
+        int.TryParse(e.Value?.ToString(), out var size) ? OnPageSizeChange.InvokeAsync(size) : Task.CompletedTask;
+}

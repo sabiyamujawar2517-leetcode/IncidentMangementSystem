@@ -2,6 +2,8 @@ namespace IncidentAgent.Domain.Entities;
 
 public class IncidentComment
 {
+    public const int BodyMaxLength = 4000;
+
     public Guid Id { get; set; }
 
     public Guid IncidentId { get; set; }

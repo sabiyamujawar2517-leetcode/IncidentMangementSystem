@@ -1,4 +1,7 @@
+using IncidentAgent.Application.Incidents;
+using IncidentAgent.Application.ReferenceData;
 using IncidentAgent.Infrastructure.Persistence;
+using IncidentAgent.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,6 +16,8 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Connection string 'Postgres' is not configured.");
 
         services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddScoped<IIncidentService, IncidentService>();
+        services.AddScoped<IReferenceDataService, ReferenceDataService>();
 
         return services;
     }

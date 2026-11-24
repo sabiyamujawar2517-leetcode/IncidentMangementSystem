@@ -1,0 +1,20 @@
+<a class="kpi kpi--@Tone" href="@Href">
+    <span class="kpi__icon"><Icon Name="@IconName" Size="20" /></span>
+    <span class="kpi__body">
+        <span class="kpi__label">@Label</span>
+        <span class="kpi__value">@(Value?.ToString("N0") ?? "—")</span>
+        @if (Hint is not null)
+        {
+            <span class="kpi__hint">@Hint</span>
+        }
+    </span>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public string IconName { get; set; } = "list";
+    [Parameter] public string Tone { get; set; } = "neutral";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string Href { get; set; } = "incidents";
+}

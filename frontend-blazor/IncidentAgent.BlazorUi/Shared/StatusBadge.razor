@@ -1,0 +1,5 @@
+<span class="badge badge--status-@Value.ToString().ToLowerInvariant()"><span class="badge__dot" aria-hidden="true"></span>@Value</span>
+
+@code {
+    [Parameter, EditorRequired] public IncidentStatus Value { get; set; }
+}

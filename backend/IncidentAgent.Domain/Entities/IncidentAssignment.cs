@@ -10,8 +10,8 @@ public class IncidentAssignment
     public Guid AssigneeId { get; set; }
     public User Assignee { get; set; } = null!;
 
-    public Guid AssignedById { get; set; }
-    public User AssignedBy { get; set; } = null!;
+    public Guid? AssignedById { get; set; }
+    public User? AssignedBy { get; set; }
 
     public DateTime AssignedAtUtc { get; set; }
     public DateTime? UnassignedAtUtc { get; set; }
