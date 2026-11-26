@@ -1,0 +1,109 @@
+<header class="page-header">
+  <div>
+    <a class="back-link" [routerLink]="isEdit() ? ['/incidents', id()] : ['/incidents']">
+      <app-icon name="back" [size]="16" /> {{ isEdit() ? 'Back to incident' : 'Back to incidents' }}
+    </a>
+    <h1 class="page-title">
+      @if (isEdit()) { Edit {{ incident()?.incidentNumber ?? 'incident' }} } @else { Report an incident }
+    </h1>
+    <p class="page-subtitle">
+      @if (isEdit()) { Update the details. Status and assignment are changed from the incident page. }
+      @else { New incidents start with status Open. }
+    </p>
+  </div>
+</header>
+
+@if (loadError(); as err) {
+  <div class="card">
+    <app-state-message kind="error" [title]="err.title" [message]="err.message" (retry)="load()" />
+  </div>
+} @else if (loading()) {
+  <div class="card"><app-state-message kind="loading" title="Loading form…" /></div>
+} @else {
+  @if (isClosed()) {
+    <p class="alert alert-warning" role="status">This incident is Closed. The API does not allow closed incidents to be updated.</p>
+  }
+  @if (needsUser()) {
+    <p class="alert alert-warning" role="status">
+      Set the acting user (top right) before reporting. The API requires a reporter id and has no sign-in.
+    </p>
+  }
+  @if (categories().length === 0 || services().length === 0) {
+    <p class="alert alert-warning" role="status">No categories or application services exist yet, so an incident can't be created.</p>
+  }
+
+  <form class="card form-card" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    @if (submitError(); as se) {
+      <div class="alert alert-error" role="alert">
+        <strong>{{ se.message }}</strong>
+        @if (se.details.length) {
+          <ul>@for (d of se.details; track $index) { <li>{{ d }}</li> }</ul>
+        }
+      </div>
+    }
+
+    <div class="field">
+      <label class="field-label" for="incident-title">Title <span class="req" aria-hidden="true">*</span></label>
+      <input id="incident-title" class="input" type="text" formControlName="title" autocomplete="off"
+             [attr.maxlength]="limits.titleMaxLength" [attr.aria-invalid]="errorFor('title') ? true : null"
+             aria-describedby="incident-title-help incident-title-error" required />
+      <div class="field-meta">
+        <span id="incident-title-help" class="hint">A short summary of the problem.</span>
+        <span class="counter" aria-live="polite">{{ titleLength() }}/{{ limits.titleMaxLength }}</span>
+      </div>
+      @if (errorFor('title'); as msg) { <p id="incident-title-error" class="field-error">{{ msg }}</p> }
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="incident-description">Description <span class="req" aria-hidden="true">*</span></label>
+      <textarea id="incident-description" class="input" rows="7" formControlName="description"
+                [attr.maxlength]="limits.descriptionMaxLength" [attr.aria-invalid]="errorFor('description') ? true : null"
+                aria-describedby="incident-description-help incident-description-error" required></textarea>
+      <div class="field-meta">
+        <span id="incident-description-help" class="hint">What happened, impact, and steps to reproduce.</span>
+        <span class="counter">{{ descriptionLength() }}/{{ limits.descriptionMaxLength }}</span>
+      </div>
+      @if (errorFor('description'); as msg) { <p id="incident-description-error" class="field-error">{{ msg }}</p> }
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label class="field-label" for="incident-priority">Priority <span class="req" aria-hidden="true">*</span></label>
+        <select id="incident-priority" class="input" formControlName="priority" [attr.aria-invalid]="errorFor('priority') ? true : null"
+                aria-describedby="incident-priority-error" required>
+          <option value="" disabled>Select priority</option>
+          @for (p of priorities; track p) { <option [value]="p">{{ priorityLabels[p] }}</option> }
+        </select>
+        @if (errorFor('priority'); as msg) { <p id="incident-priority-error" class="field-error">{{ msg }}</p> }
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="incident-categoryId">Category <span class="req" aria-hidden="true">*</span></label>
+        <select id="incident-categoryId" class="input" formControlName="categoryId" [attr.aria-invalid]="errorFor('categoryId') ? true : null"
+                aria-describedby="incident-categoryId-error" required>
+          <option value="" disabled>Select category</option>
+          @for (c of categories(); track c.id) { <option [value]="c.id">{{ c.name }}</option> }
+        </select>
+        @if (errorFor('categoryId'); as msg) { <p id="incident-categoryId-error" class="field-error">{{ msg }}</p> }
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="incident-serviceId">Application service <span class="req" aria-hidden="true">*</span></label>
+        <select id="incident-serviceId" class="input" formControlName="serviceId" [attr.aria-invalid]="errorFor('serviceId') ? true : null"
+                aria-describedby="incident-serviceId-error" required>
+          <option value="" disabled>Select service</option>
+          @for (s of services(); track s.id) { <option [value]="s.id">{{ s.name }}{{ s.ownerTeam ? ' · ' + s.ownerTeam : '' }}</option> }
+        </select>
+        @if (errorFor('serviceId'); as msg) { <p id="incident-serviceId-error" class="field-error">{{ msg }}</p> }
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a class="btn btn-secondary" [routerLink]="isEdit() ? ['/incidents', id()] : ['/incidents']">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving() || isClosed() || needsUser()">
+        @if (saving()) { <span class="spinner spinner-sm" aria-hidden="true"></span> Saving… }
+        @else { {{ isEdit() ? 'Save changes' : 'Create incident' }} }
+      </button>
+    </div>
+  </form>
+}

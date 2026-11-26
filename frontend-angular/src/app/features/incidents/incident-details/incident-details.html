@@ -1,0 +1,180 @@
+<a class="back-link" routerLink="/incidents"><app-icon name="back" [size]="16" /> Back to incidents</a>
+
+@if (error(); as err) {
+  <div class="card">
+    <app-state-message kind="error" [title]="err.status === 404 ? 'Incident not found' : err.title" [message]="err.message"
+                       [retryable]="err.status !== 404" (retry)="load()">
+      <a class="btn btn-secondary btn-sm" routerLink="/incidents">All incidents</a>
+    </app-state-message>
+  </div>
+} @else if (loading() && !incident()) {
+  <div class="card"><app-state-message kind="loading" title="Loading incident…" /></div>
+} @else if (incident(); as inc) {
+  <header class="page-header">
+    <div class="min-w-0">
+      <p class="incident-number mono">{{ inc.incidentNumber }}</p>
+      <h1 class="page-title break">{{ inc.title }}</h1>
+      <div class="badges">
+        <app-status-badge [status]="inc.status" />
+        <app-priority-badge [priority]="inc.priority" />
+      </div>
+    </div>
+    <div class="page-actions">
+      @if (isClosed()) {
+        <span class="btn btn-secondary is-disabled" aria-disabled="true" title="Closed incidents cannot be edited">
+          <app-icon name="edit" [size]="18" /> Edit
+        </span>
+      } @else {
+        <a class="btn btn-secondary" [routerLink]="['/incidents', inc.id, 'edit']"><app-icon name="edit" [size]="18" /> Edit</a>
+      }
+    </div>
+  </header>
+
+  @if (isClosed()) {
+    <p class="alert alert-info" role="status">This incident is Closed. The API allows no further updates, assignments, status changes or comments.</p>
+  }
+
+  <div class="details-grid">
+    <div class="details-main">
+      <section class="card" aria-labelledby="desc-title">
+        <div class="card-header"><h2 id="desc-title" class="card-title">Description</h2></div>
+        <p class="card-body description">{{ inc.description }}</p>
+      </section>
+
+      <section class="card" aria-labelledby="comments-title">
+        <div class="card-header"><h2 id="comments-title" class="card-title">Comments</h2></div>
+        <div class="card-body stack">
+          <p class="hint">
+            <app-icon name="info" [size]="14" />
+            The API has no endpoint for listing comments, so existing comments can't be shown. Comments you add here appear below until you leave the page.
+          </p>
+
+          @if (!isClosed()) {
+            @if (currentUser.isSet()) {
+              <form class="stack-sm" (submit)="$event.preventDefault(); addComment()">
+                <label class="field-label" for="comment-body">Add a comment</label>
+                <textarea id="comment-body" class="input" rows="3" [formControl]="commentControl" [attr.maxlength]="limits.commentMaxLength"
+                          [attr.aria-invalid]="actionError()?.action === 'comment' ? true : null"></textarea>
+                <div class="row-between">
+                  <span class="counter">{{ commentControl.value.length }}/{{ limits.commentMaxLength }}</span>
+                  <button type="submit" class="btn btn-primary btn-sm" [disabled]="busy() !== null">
+                    @if (busy() === 'comment') { <span class="spinner spinner-sm" aria-hidden="true"></span> } Add comment
+                  </button>
+                </div>
+                @if (actionError()?.action === 'comment') { <p class="field-error" role="alert">{{ actionError()?.message }}</p> }
+              </form>
+            } @else {
+              <p class="alert alert-warning">Set the acting user (top right) to comment. The API needs an author id.</p>
+            }
+          }
+
+          @if (sessionComments().length) {
+            <ul class="comments">
+              @for (c of sessionComments(); track c.id) {
+                <li class="comment">
+                  <div class="comment-meta"><strong>{{ c.authorName }}</strong> · <time [attr.datetime]="c.createdAtUtc">{{ c.createdAtUtc | date: 'd MMM y, HH:mm' }}</time></div>
+                  <p class="comment-body">{{ c.body }}</p>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="history-title">
+        <div class="card-header">
+          <h2 id="history-title" class="card-title">History</h2>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="loadHistory()" [disabled]="historyLoading()" aria-label="Reload history">
+            <app-icon name="refresh" [size]="16" />
+          </button>
+        </div>
+        @if (historyError(); as herr) {
+          <app-state-message kind="error" title="Couldn't load history" [message]="herr.message" (retry)="loadHistory()" />
+        } @else if (historyLoading() && history().length === 0) {
+          <app-state-message kind="loading" title="Loading history…" />
+        } @else if (historyView().length === 0) {
+          <app-state-message kind="empty" title="No history yet" [retryable]="false" />
+        } @else {
+          <ol class="timeline" [attr.aria-busy]="historyLoading()">
+            @for (h of historyView(); track h.id) {
+              <li class="timeline-item">
+                <span class="timeline-dot" aria-hidden="true"></span>
+                <div class="min-w-0">
+                  <p class="timeline-title">{{ h.title }}</p>
+                  @if (h.from || h.to) {
+                    <p class="timeline-change break">
+                      @if (h.from) { <span class="old">{{ h.from }}</span> <span aria-label="to">→</span> }
+                      <span class="new">{{ h.to ?? '—' }}</span>
+                    </p>
+                  }
+                  <p class="timeline-meta">{{ h.by }} · <time [attr.datetime]="h.at">{{ h.at | date: 'd MMM y, HH:mm' }}</time></p>
+                </div>
+              </li>
+            }
+          </ol>
+        }
+      </section>
+    </div>
+
+    <aside class="details-side">
+      <section class="card" aria-labelledby="info-title">
+        <div class="card-header"><h2 id="info-title" class="card-title">Details</h2></div>
+        <dl class="props">
+          <dt>Status</dt><dd><app-status-badge [status]="inc.status" /></dd>
+          <dt>Priority</dt><dd><app-priority-badge [priority]="inc.priority" /></dd>
+          <dt>Category</dt><dd>{{ inc.categoryName }}</dd>
+          <dt>Service</dt><dd>{{ inc.serviceName }}</dd>
+          <dt>Reporter</dt><dd>{{ inc.reporterName }}</dd>
+          <dt>Assignee</dt><dd>@if (inc.assigneeName) { {{ inc.assigneeName }} } @else { <span class="text-muted">Unassigned</span> }</dd>
+          <dt>Created</dt><dd><time [attr.datetime]="inc.createdAtUtc">{{ inc.createdAtUtc | date: 'd MMM y, HH:mm' }}</time></dd>
+          <dt>Updated</dt><dd><time [attr.datetime]="inc.updatedAtUtc">{{ inc.updatedAtUtc | date: 'd MMM y, HH:mm' }}</time></dd>
+          @if (inc.resolvedAtUtc) { <dt>Resolved</dt><dd><time [attr.datetime]="inc.resolvedAtUtc">{{ inc.resolvedAtUtc | date: 'd MMM y, HH:mm' }}</time></dd> }
+          @if (inc.closedAtUtc) { <dt>Closed</dt><dd><time [attr.datetime]="inc.closedAtUtc">{{ inc.closedAtUtc | date: 'd MMM y, HH:mm' }}</time></dd> }
+        </dl>
+      </section>
+
+      @if (!isClosed()) {
+        <section class="card" aria-labelledby="status-title">
+          <div class="card-header"><h2 id="status-title" class="card-title">Change status</h2></div>
+          <form class="card-body stack-sm" (submit)="$event.preventDefault(); changeStatus()">
+            <label class="field-label" for="new-status">New status</label>
+            <select id="new-status" class="input" [formControl]="statusControl">
+              <option value="" disabled>Select status</option>
+              @for (s of allowedStatuses(); track s) { <option [value]="s">{{ s }}</option> }
+            </select>
+            <p class="hint">Only transitions the API allows from {{ inc.status }} are listed.</p>
+            <label class="field-label" for="status-note">Note <span class="text-muted">(optional, saved as a comment)</span></label>
+            <textarea id="status-note" class="input" rows="2" [formControl]="noteControl" [attr.maxlength]="limits.commentMaxLength"></textarea>
+            <button type="submit" class="btn btn-primary" [disabled]="busy() !== null || !statusControl.value">
+              @if (busy() === 'status') { <span class="spinner spinner-sm" aria-hidden="true"></span> } Update status
+            </button>
+            @if (actionError()?.action === 'status') { <p class="field-error" role="alert">{{ actionError()?.message }}</p> }
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="assign-title">
+          <div class="card-header"><h2 id="assign-title" class="card-title">Assign</h2></div>
+          <form class="card-body stack-sm" (submit)="$event.preventDefault(); assign()">
+            <label class="field-label" for="assignee-id">Assignee user id</label>
+            <input id="assignee-id" class="input mono" type="text" list="known-users" autocomplete="off" spellcheck="false"
+                   placeholder="00000000-0000-0000-0000-000000000000" [formControl]="assigneeControl"
+                   [attr.aria-invalid]="actionError()?.action === 'assign' ? true : null" aria-describedby="assignee-help" />
+            <datalist id="known-users">
+              @for (u of knownUserList(); track u.id) { <option [value]="u.id">{{ u.name }}</option> }
+            </datalist>
+            <p id="assignee-help" class="hint">The API has no users endpoint. Suggestions are limited to people linked to this incident.</p>
+            <div class="row-wrap">
+              <button type="submit" class="btn btn-primary" [disabled]="busy() !== null || !assigneeControl.value">
+                @if (busy() === 'assign') { <span class="spinner spinner-sm" aria-hidden="true"></span> } Assign
+              </button>
+              @if (currentUser.userId(); as me) {
+                <button type="button" class="btn btn-secondary" (click)="assignToMe()" [disabled]="busy() !== null || inc.assigneeId === me">Assign to me</button>
+              }
+            </div>
+            @if (actionError()?.action === 'assign') { <p class="field-error" role="alert">{{ actionError()?.message }}</p> }
+          </form>
+        </section>
+      }
+    </aside>
+  </div>
+}

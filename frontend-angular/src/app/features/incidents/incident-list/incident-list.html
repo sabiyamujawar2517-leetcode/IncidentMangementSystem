@@ -1,0 +1,109 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">{{ title() }}</h1>
+    <p class="page-subtitle">
+      @if (mode() === 'mine') {
+        Incidents currently assigned to the acting user.
+      } @else {
+        Every incident reported in IncidentAgent, newest first.
+      }
+    </p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-secondary" (click)="reload()" [disabled]="loading() || needsUser()">
+      <app-icon name="refresh" [size]="18" /> Refresh
+    </button>
+    <a class="btn btn-primary" routerLink="/incidents/new"><app-icon name="add" [size]="18" /> Report incident</a>
+  </div>
+</header>
+
+@if (needsUser()) {
+  <div class="card">
+    <app-state-message kind="empty" title="No acting user set"
+      message="The API has no sign-in. Set the acting user (top right) to list the incidents assigned to that user."
+      [retryable]="false" />
+  </div>
+} @else {
+  <section class="card" aria-label="Incident list">
+    <form class="filters" (submit)="$event.preventDefault()" aria-label="Filters">
+      <div class="filter">
+        <label class="field-label" for="f-status">Status</label>
+        <select #statusSel id="f-status" class="input" (change)="setStatus(statusSel.value)">
+          <option value="" [selected]="!filters().status">All statuses</option>
+          @for (s of statuses; track s) { <option [value]="s" [selected]="filters().status === s">{{ s }}</option> }
+        </select>
+      </div>
+      <div class="filter">
+        <label class="field-label" for="f-priority">Priority</label>
+        <select #prioSel id="f-priority" class="input" (change)="setPriority(prioSel.value)">
+          <option value="" [selected]="!filters().priority">All priorities</option>
+          @for (p of priorities; track p) { <option [value]="p" [selected]="filters().priority === p">{{ priorityLabels[p] }}</option> }
+        </select>
+      </div>
+      <div class="filter">
+        <label class="field-label" for="f-category">Category</label>
+        <select #catSel id="f-category" class="input" (change)="setFilter({ categoryId: catSel.value || null })"
+                [disabled]="categories().length === 0">
+          <option value="" [selected]="!filters().categoryId">All categories</option>
+          @for (c of categories(); track c.id) { <option [value]="c.id" [selected]="filters().categoryId === c.id">{{ c.name }}</option> }
+        </select>
+      </div>
+      <div class="filter">
+        <label class="field-label" for="f-service">Service</label>
+        <select #svcSel id="f-service" class="input" (change)="setFilter({ serviceId: svcSel.value || null })"
+                [disabled]="services().length === 0">
+          <option value="" [selected]="!filters().serviceId">All services</option>
+          @for (s of services(); track s.id) { <option [value]="s.id" [selected]="filters().serviceId === s.id">{{ s.name }}</option> }
+        </select>
+      </div>
+      <div class="filter filter-size">
+        <label class="field-label" for="f-size">Per page</label>
+        <select #sizeSel id="f-size" class="input" (change)="setPageSize(sizeSel.value)">
+          @for (size of pageSizes; track size) { <option [value]="size" [selected]="filters().pageSize === size">{{ size }}</option> }
+        </select>
+      </div>
+      @if (hasFilters()) {
+        <button type="button" class="btn btn-ghost btn-sm filter-clear" (click)="clearFilters()">Clear filters</button>
+      }
+    </form>
+
+    <p class="filters-note">
+      <app-icon name="info" [size]="16" />
+      Search by number or title and column sorting aren't available because the API has no search or sort parameters. Results are sorted newest first.
+    </p>
+    @if (referenceError()) {
+      <p class="alert alert-warning">{{ referenceError() }}</p>
+    }
+
+    <div class="list-body" [attr.aria-busy]="loading()">
+      @if (error(); as err) {
+        <app-state-message kind="error" [title]="err.title" [message]="err.message" (retry)="reload()" />
+      } @else if (loading() && !result()) {
+        <app-state-message kind="loading" title="Loading incidents…" />
+      } @else if (result(); as r) {
+        @if (r.items.length === 0) {
+          @if (r.totalCount > 0) {
+            <app-state-message kind="empty" title="This page is empty" message="There are fewer results than this page number." [retryable]="false">
+              <button type="button" class="btn btn-secondary btn-sm" (click)="goToPage(1)">Go to first page</button>
+            </app-state-message>
+          } @else if (hasFilters()) {
+            <app-state-message kind="empty" title="No matching incidents" message="No incidents match the selected filters." [retryable]="false">
+              <button type="button" class="btn btn-secondary btn-sm" (click)="clearFilters()">Clear filters</button>
+            </app-state-message>
+          } @else if (mode() === 'mine') {
+            <app-state-message kind="empty" title="Nothing assigned" message="No incidents are currently assigned to the acting user." [retryable]="false" />
+          } @else {
+            <app-state-message kind="empty" title="No incidents yet" message="Reported incidents will appear here." [retryable]="false">
+              <a class="btn btn-primary btn-sm" routerLink="/incidents/new">Report the first incident</a>
+            </app-state-message>
+          }
+        } @else {
+          <div class="table-wrap" [class.is-refreshing]="loading()">
+            <app-incident-table [items]="r.items" [caption]="title()" />
+          </div>
+        }
+        <app-pager [page]="r.page" [pageSize]="r.pageSize" [totalCount]="r.totalCount" (pageChange)="goToPage($event)" />
+      }
+    </div>
+  </section>
+}

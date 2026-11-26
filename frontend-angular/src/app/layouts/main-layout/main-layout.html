@@ -1,0 +1,90 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<div class="shell" [class.is-collapsed]="collapsed()" [class.nav-open]="mobileNavOpen()" (keydown)="onKeydown($event)">
+  <aside id="app-sidebar" class="sidebar" aria-label="Main navigation">
+    <a class="brand" routerLink="/dashboard">
+      <span class="brand-mark" aria-hidden="true">IA</span>
+      <span class="brand-text">IncidentAgent</span>
+    </a>
+
+    <nav>
+      @for (section of navSections; track section.title) {
+        <p class="nav-section">{{ section.title }}</p>
+        <ul class="nav-list">
+          @for (item of section.items; track item.link) {
+            <li>
+              <a class="nav-link" [routerLink]="item.link" routerLinkActive="active"
+                 [routerLinkActiveOptions]="{ exact: item.exact ?? false }" ariaCurrentWhenActive="page" [attr.title]="collapsed() && !isMobile() ? item.label : null">
+                <app-icon [name]="item.icon" />
+                <span class="nav-label">{{ item.label }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </nav>
+  </aside>
+
+  @if (mobileNavOpen()) {
+    <div class="backdrop" (click)="mobileNavOpen.set(false)" aria-hidden="true"></div>
+  }
+
+  <div class="main">
+    <header class="topbar">
+      <button type="button" class="icon-btn" (click)="toggleNav()" aria-controls="app-sidebar"
+              [attr.aria-expanded]="navExpanded()" aria-label="Toggle navigation">
+        <app-icon name="menu" />
+      </button>
+
+      <div class="topbar-spacer"></div>
+
+      <button type="button" class="api-status" [class]="'api-status api-' + apiHealth()" (click)="checkHealth()"
+              [attr.aria-label]="'API status: ' + apiHealth() + '. Click to re-check.'">
+        <span class="api-dot" aria-hidden="true"></span>
+        <span class="api-label">API {{ apiHealth() === 'checking' ? 'checking…' : apiHealth() }}</span>
+      </button>
+
+      <div class="user-menu">
+        <button type="button" class="user-btn" (click)="userPanelOpen.set(!userPanelOpen())"
+                aria-controls="user-panel" [attr.aria-expanded]="userPanelOpen()">
+          <app-icon name="person" [size]="18" />
+          <span class="user-btn-text">
+            @if (currentUser.userId(); as id) { Acting as <span class="mono">{{ id.slice(0, 8) }}…</span> } @else { Set acting user }
+          </span>
+        </button>
+
+        @if (userPanelOpen()) {
+          <section id="user-panel" class="user-panel card" aria-labelledby="user-panel-title">
+            <h2 id="user-panel-title" class="user-panel-title">Acting user</h2>
+            <p class="hint">
+              The API has no sign-in or users endpoint. Enter the id of an existing user; it is sent as
+              reporter, comment author, actor and “My incidents” assignee. The API rejects unknown ids.
+            </p>
+            <form (submit)="$event.preventDefault(); saveUserId(userIdInput.value)">
+              <label class="field-label" for="acting-user-id">User id (GUID)</label>
+              <input #userIdInput id="acting-user-id" class="input mono" type="text" autocomplete="off" spellcheck="false"
+                     [value]="currentUser.userId() ?? ''" [attr.aria-invalid]="userIdError() ? true : null"
+                     [attr.aria-describedby]="userIdError() ? 'acting-user-error' : null" />
+              @if (userIdError()) {
+                <p id="acting-user-error" class="field-error">{{ userIdError() }}</p>
+              }
+              <div class="user-panel-actions">
+                @if (currentUser.isSet()) {
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="clearUserId()">Clear</button>
+                }
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+              </div>
+            </form>
+          </section>
+        }
+      </div>
+    </header>
+
+    <main id="main-content" class="content" tabindex="-1">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+
+<app-confirm-dialog />
+<app-toast-container />

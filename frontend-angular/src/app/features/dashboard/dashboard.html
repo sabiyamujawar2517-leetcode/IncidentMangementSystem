@@ -1,0 +1,93 @@
+<header class="page-header">
+  <div>
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Live counts from the IncidentAgent API.</p>
+  </div>
+  <div class="page-actions">
+    <button type="button" class="btn btn-secondary" (click)="load()" [disabled]="loading()">
+      <app-icon name="refresh" [size]="18" /> Refresh
+    </button>
+    <a class="btn btn-secondary" routerLink="/incidents">View incidents</a>
+    <a class="btn btn-primary" routerLink="/incidents/new"><app-icon name="add" [size]="18" /> Report incident</a>
+  </div>
+</header>
+
+@if (error(); as err) {
+  <div class="card">
+    <app-state-message kind="error" [title]="err.title" [message]="err.message" (retry)="load()" />
+  </div>
+} @else if (loading() && !data()) {
+  <div class="card">
+    <app-state-message kind="loading" title="Loading dashboard…" />
+  </div>
+} @else if (data(); as d) {
+  <section class="kpi-grid" aria-label="Key figures" [attr.aria-busy]="loading()">
+    @for (kpi of kpis(); track kpi.label) {
+      @if (kpi.queryParams) {
+        <a class="card kpi kpi-link" [class]="'card kpi kpi-link tone-' + kpi.tone" routerLink="/incidents" [queryParams]="kpi.queryParams">
+          <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: kpi }" />
+        </a>
+      } @else {
+        <div class="card kpi" [class]="'card kpi tone-' + kpi.tone">
+          <ng-container *ngTemplateOutlet="kpiBody; context: { $implicit: kpi }" />
+        </div>
+      }
+    }
+  </section>
+
+  <p class="data-note">
+    <app-icon name="info" [size]="16" />
+    The API has no statistics endpoint. Each figure is the exact <code>totalCount</code> the incident list returns for that filter.
+  </p>
+
+  <div class="dist-grid">
+    <section class="card" aria-labelledby="status-dist-title">
+      <div class="card-header"><h2 id="status-dist-title" class="card-title">Incidents by status</h2></div>
+      <ul class="dist-list">
+        @for (row of statusRows(); track row.key) {
+          <li class="dist-row">
+            <a class="dist-label" routerLink="/incidents" [queryParams]="row.queryParams">{{ row.label }}</a>
+            <span class="dist-track" aria-hidden="true"><span class="dist-bar" [style.width.%]="row.percent"></span></span>
+            <span class="dist-value">{{ row.count }} <span class="text-muted">({{ row.percent }}%)</span></span>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="card" aria-labelledby="priority-dist-title">
+      <div class="card-header"><h2 id="priority-dist-title" class="card-title">Incidents by priority</h2></div>
+      <ul class="dist-list">
+        @for (row of priorityRows(); track row.key) {
+          <li class="dist-row">
+            <a class="dist-label" routerLink="/incidents" [queryParams]="row.queryParams">{{ row.label }}</a>
+            <span class="dist-track" aria-hidden="true"><span class="dist-bar" [style.width.%]="row.percent"></span></span>
+            <span class="dist-value">{{ row.count }} <span class="text-muted">({{ row.percent }}%)</span></span>
+          </li>
+        }
+      </ul>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="recent-title">
+    <div class="card-header">
+      <h2 id="recent-title" class="card-title">Recent incidents</h2>
+      <a class="btn btn-ghost btn-sm" routerLink="/incidents">View all</a>
+    </div>
+    @if (d.recent.length === 0) {
+      <app-state-message kind="empty" title="No incidents yet" message="Reported incidents will appear here." [retryable]="false">
+        <a class="btn btn-primary btn-sm" routerLink="/incidents/new">Report the first incident</a>
+      </app-state-message>
+    } @else {
+      <app-incident-table [items]="d.recent" [compact]="true" caption="Five most recent incidents" />
+    }
+  </section>
+}
+
+<ng-template #kpiBody let-kpi>
+  <span class="kpi-icon" aria-hidden="true"><app-icon [name]="kpi.icon" [size]="22" /></span>
+  <span class="kpi-text">
+    <span class="kpi-label">{{ kpi.label }}</span>
+    <span class="kpi-value">{{ kpi.value }}</span>
+    <span class="kpi-hint">{{ kpi.hint }}</span>
+  </span>
+</ng-template>
