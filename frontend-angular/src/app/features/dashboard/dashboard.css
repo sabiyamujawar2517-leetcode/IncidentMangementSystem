@@ -1,0 +1,31 @@
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1rem; }
+.kpi { display: flex; align-items: flex-start; gap: 0.875rem; padding: 1.125rem; color: var(--color-text); text-decoration: none; }
+.kpi-link { transition: box-shadow 120ms ease, transform 120ms ease; }
+.kpi-link:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.kpi-icon { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: var(--radius-md); background: var(--color-bg); color: var(--color-text-muted); flex-shrink: 0; }
+.tone-open .kpi-icon { background: var(--status-open-bg); color: var(--status-open-fg); }
+.tone-progress .kpi-icon { background: var(--status-investigating-bg); color: var(--status-investigating-fg); }
+.tone-critical .kpi-icon { background: var(--priority-p1-bg); color: var(--priority-p1-fg); }
+.tone-resolved .kpi-icon { background: var(--status-resolved-bg); color: var(--status-resolved-fg); }
+.kpi-text { display: flex; flex-direction: column; min-width: 0; }
+.kpi-label { font-size: 0.85rem; color: var(--color-text-muted); font-weight: 500; }
+.kpi-value { font-size: 1.85rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.kpi-hint { font-size: 0.75rem; color: var(--color-text-muted); }
+
+.data-note { display: flex; align-items: center; gap: 0.4rem; margin: 0.75rem 0 1.25rem; font-size: 0.8rem; color: var(--color-text-muted); }
+
+.dist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.dist-list { list-style: none; margin: 0; padding: 0.5rem 1.25rem 1.25rem; display: grid; gap: 0.75rem; }
+.dist-row { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 5.5rem; align-items: center; gap: 0.75rem; font-size: 0.9rem; }
+.dist-label { color: var(--color-text); text-decoration: none; }
+.dist-label:hover { color: var(--color-primary); text-decoration: underline; }
+.dist-track { height: 0.625rem; border-radius: 4px; background: var(--color-bg); overflow: hidden; }
+.dist-bar { display: block; height: 100%; border-radius: 4px; background: var(--color-primary); }
+.dist-value { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+@media (max-width: 560px) {
+  .dist-grid { grid-template-columns: minmax(0, 1fr); }
+  .dist-row { grid-template-columns: 6.5rem minmax(0, 1fr) 4.75rem; gap: 0.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) { .kpi-link { transition: none; } .kpi-link:hover { transform: none; } }
